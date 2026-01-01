@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Gentle Journey</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #ffc0cb 0%, #ffb6c1 100%);
+            font-family: 'Courier New', monospace;
+        }
+        #game-container {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script>
+        class StartScene extends Phaser.Scene {
+            constructor() {
+                super('StartScene');
+            }
+
+            create() {
+                const graphics = this.add.graphics();
+                graphics.fillGradientStyle(0xFFB6D9, 0xFFB6D9, 0xFFE4E8, 0xFFE4E8, 1);
+                graphics.fillRect(0, 0, 800, 600);
+
+                for (let i = 0; i < 20; i++) {
+                    const x = Phaser.Math.Between(0, 800);
+                    const y = Phaser.Math.Between(0, 600);
+                    const particle = this.add.circle(x, y, Phaser.Math.Between(3, 8), 0xFFFFFF, 0.3);
+                    this.tweens.add({
+                        targets: particle,
+                        y: y - 100,
+                        alpha: 0,
+                        duration: Phaser.Math.Between(3000, 5000),
+                        repeat: -1
+                    });
+                }
+
+                const title = this.add.text(400, 180, 'A Gentle Journey', {
+                    fontSize: '56px',
+                    fill: '#FF69B4',
+                    fontStyle: 'bold',
+                    stroke: '#FFFFFF',
+                    strokeThickness: 4
+                }).setOrigin(0.5);
+
+                this.tweens.add({
+                    targets: title,
+                    y: 175,
+                    duration: 2000,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+
+                this.add.text(400, 250, 'A cozy story of patience and love', {
+                    fontSize: '20px',
+                    fill: '#FF1493',
+                    fontStyle: 'italic'
+                }).setOrigin(0.5);
+
+                const startButton = this.add.rectangle(400, 350, 200, 60, 0xFF69B4);
+                startButton.setInteractive();
+                
+                const startText = this.add.text(400, 350, 'Start', {
+                    fontSize: '28px',
+                    fill: '#FFFFFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                startButton.on('pointerover', () => {
+                    startButton.setFillStyle(0xFF1493);
+                    startButton.setScale(1.1);
+                });
+
+                startButton.on('pointerout', () => {
+                    startButton.setFillStyle(0xFF69B4);
+                    startButton.setScale(1);
+                });
+
+                startButton.on('pointerdown', () => {
+                    this.cameras.main.fade(1000, 255, 182, 203);
+                    this.time.delayedCall(1000, () => {
+                        
+this.textures.each(texture => {
+    texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+});
+
+this.scene.start('GameScene');
+                    });
+                });
+
+                this.add.text(400, 450, 'Arrow Keys/WASD to Move\nSPACE to Interact\nTouch controls available on mobile', {
+                    fontSize: '14px',
+                    fill: '#666666',
+                    align: 'center',
+                    lineSpacing: 10
+                }).setOrigin(0.5);
+            }
+        }
+
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super('GameScene');
+            }
+
+            preload() {
+                this.createAssets();
+            }
+
+            create() {
+                this.setupGameState();
+                this.createWorld();
+                this.createPlayer();
+                this.setupCamera();
+                this.setupControls();
+                this.createUI();
+                
+                this.time.delayedCall(100, () => {
+                    this.showDialog([
+                        "A peaceful morning...",
+                        "Time to get ready for the day!",
+                        "Look for exclamation marks (!) to find tasks.",
+                        "You must complete all tasks to leave an area!"
+                    ]);
+                });
+            }
+
+            createAssets() {
+                const g = this.make.graphics({x: 0, y: 0, add: false});
+                
+                // Player in Pink Outfit (default)
+                g.fillStyle(0x6B4423); g.fillRect(3, 0, 10, 8);
+                g.fillStyle(0x8B6F47); g.fillRect(4, 1, 2, 3);
+                g.fillStyle(0xFFDDB7); g.fillRect(5, 3, 6, 5);
+                g.fillStyle(0x3B2621); g.fillRect(6, 5, 1, 1); g.fillRect(9, 5, 1, 1);
+                g.fillStyle(0xFF9999); g.fillRect(7, 7, 2, 1);
+                g.fillStyle(0xFF69B4); g.fillRect(3, 8, 10, 8);
+                g.fillStyle(0xFFB6D9); g.fillRect(4, 9, 2, 6); g.fillRect(10, 9, 2, 6);
+                g.fillRect(1, 9, 2, 4); g.fillRect(13, 9, 2, 4);
+                g.generateTexture('player', 16, 16);
+                g.clear();
+
+                // NPC
+                const n = this.make.graphics({x: 0, y: 0, add: false});
+                n.fillStyle(0x1a1a1a); n.fillRect(3, 0, 10, 8);
+                n.fillStyle(0xFFDDB7); n.fillRect(5, 3, 6, 5);
+                n.fillStyle(0x000000); n.fillRect(5, 5, 2, 1); n.fillRect(9, 5, 2, 1); n.fillRect(7, 5, 2, 1);
+                n.fillStyle(0x4169E1); n.fillRect(2, 8, 12, 12);
+                n.generateTexture('npc', 16, 20);
+                n.destroy();
+                
+                // Isaac
+                const isaac = this.make.graphics({x: 0, y: 0, add: false});
+                isaac.fillStyle(0x000000); isaac.fillRect(3, 0, 10, 8);
+                isaac.fillStyle(0xFFDDB7); isaac.fillRect(5, 3, 6, 5);
+                isaac.fillStyle(0x000000); isaac.fillRect(6, 5, 1, 1); isaac.fillRect(9, 5, 1, 1);
+                isaac.fillStyle(0x4682B4); isaac.fillRect(2, 8, 12, 12);
+                isaac.fillStyle(0x000000); isaac.fillRect(4, 20, 4, 6); isaac.fillRect(8, 20, 4, 6);
+                isaac.generateTexture('isaac', 16, 28);
+                isaac.destroy();
+
+                // Plane
+                const plane = this.make.graphics({x: 0, y: 0, add: false});
+                plane.fillStyle(0xFFFFFF); plane.fillRoundedRect(10, 20, 80, 20, 10);
+                plane.fillStyle(0xCCCCCC); plane.fillRect(40, 5, 10, 50);
+                plane.fillStyle(0x87CEEB); plane.fillRect(70, 25, 5, 5); plane.fillRect(60, 25, 5, 5);
+                plane.fillStyle(0xFF69B4); plane.fillRect(10, 10, 10, 20);
+                plane.generateTexture('plane', 100, 60);
+                plane.destroy();
+
+                this.createTiles();
+                this.createDetailedItems();
+            }
+
+            createTiles() {
+                // Grass
+                const grass = this.make.graphics({x: 0, y: 0, add: false});
+                grass.fillStyle(0x6FD66F); grass.fillRect(0, 0, 32, 32);
+                grass.fillStyle(0x5BC85B); grass.fillRect(0, 0, 16, 16); grass.fillRect(16, 16, 16, 16);
+                grass.fillStyle(0x8FE88F); grass.fillRect(6, 6, 4, 4); grass.fillRect(22, 10, 4, 4); grass.fillRect(10, 22, 4, 4);
+                grass.generateTexture('grass', 32, 32); grass.destroy();
+
+                // Floor
+                const floor = this.make.graphics({x: 0, y: 0, add: false});
+                floor.fillStyle(0xDEB887); floor.fillRect(0, 0, 32, 32);
+                floor.fillStyle(0xD2A679); for (let i = 0; i < 32; i += 4) floor.fillRect(i, 0, 2, 32);
+                floor.fillStyle(0xC9A06B); floor.fillRect(0, 0, 32, 2); floor.fillRect(0, 30, 32, 2);
+                floor.generateTexture('floor', 32, 32); floor.destroy();
+
+                // Wall
+                const wall = this.make.graphics({x: 0, y: 0, add: false});
+                wall.fillStyle(0xFFB6D9); wall.fillRect(0, 0, 32, 32);
+                wall.fillStyle(0xFFC9E3); wall.fillCircle(8, 8, 3); wall.fillCircle(24, 24, 3);
+                wall.generateTexture('wall', 32, 32); wall.destroy();
+
+                // Bed
+                const bed = this.make.graphics({x: 0, y: 0, add: false});
+                bed.fillStyle(0x8B4513); bed.fillRect(0, 0, 64, 48);
+                bed.fillStyle(0xFFB6D9); bed.fillRect(4, 4, 56, 40);
+                bed.fillStyle(0xFFFFFF); bed.fillRect(8, 8, 48, 16);
+                bed.fillStyle(0xFFC9E3); for (let i = 0; i < 48; i += 8) bed.fillRect(8 + i, 24, 6, 16);
+                bed.generateTexture('bed', 64, 48); bed.destroy();
+
+                // Table
+                const table = this.make.graphics({x: 0, y: 0, add: false});
+                table.fillStyle(0x8B4513); table.fillRect(0, 0, 48, 32);
+                table.fillStyle(0xA0522D); table.fillRect(2, 2, 44, 28);
+                table.generateTexture('table', 48, 32); table.destroy();
+
+                // Rug
+                const rug = this.make.graphics({x: 0, y: 0, add: false});
+                rug.fillStyle(0xFF69B4); rug.fillRect(0, 0, 80, 64);
+                rug.fillStyle(0xFFB6D9); rug.fillRect(4, 4, 72, 56);
+                rug.fillStyle(0xFF69B4); for (let i = 0; i < 60; i += 12) rug.fillRect(8 + i, 8, 8, 48);
+                rug.generateTexture('rug', 80, 64); rug.destroy();
+
+                // Road
+                const road = this.make.graphics({x: 0, y: 0, add: false});
+                road.fillStyle(0x808080); road.fillRect(0, 0, 32, 32);
+                road.fillStyle(0x696969); road.fillRect(14, 0, 4, 32);
+                road.generateTexture('road', 32, 32); road.destroy();
+            }
+
+            createDetailedItems() {
+                // Lily
+                const lily = this.make.graphics({x: 0, y: 0, add: false});
+                lily.fillStyle(0xFFFFFF);
+                for (let i = 0; i < 3; i++) {
+                    const angle = (i * Math.PI * 2) / 6;
+                    lily.fillEllipse(12 + Math.cos(angle) * 6, 12 + Math.sin(angle) * 6, 8, 12);
+                }
+                lily.fillStyle(0xFFD700); lily.fillCircle(12, 12, 4);
+                lily.fillStyle(0x228B22); lily.fillRect(11, 20, 2, 8);
+                lily.generateTexture('lily', 24, 28); lily.destroy();
+
+                // Tulip
+                const tulip = this.make.graphics({x: 0, y: 0, add: false});
+                tulip.fillStyle(0xFF1493); tulip.fillEllipse(12, 8, 10, 14);
+                tulip.fillStyle(0xFF69B4); tulip.fillEllipse(12, 10, 6, 10);
+                tulip.fillStyle(0x228B22); tulip.fillRect(11, 16, 2, 12);
+                tulip.generateTexture('tulip', 24, 28); tulip.destroy();
+
+                // Cat
+                const cat = this.make.graphics({x: 0, y: 0, add: false});
+                cat.fillStyle(0xFFA500); cat.fillEllipse(12, 12, 16, 12); cat.fillCircle(12, 8, 8);
+                cat.fillStyle(0xFF8C00); cat.fillCircle(10, 10, 2); cat.fillCircle(14, 10, 2);
+                cat.fillStyle(0x000000); cat.fillRect(8, 8, 1, 1); cat.fillRect(15, 8, 1, 1);
+                cat.fillStyle(0xFF6347); cat.fillRect(11, 10, 2, 1);
+                cat.fillStyle(0xFFA500); cat.fillEllipse(6, 4, 6, 8); cat.fillEllipse(18, 4, 6, 8);
+                cat.generateTexture('cat', 24, 20); cat.destroy();
+
+                // Tree
+                const tree = this.make.graphics({x: 0, y: 0, add: false});
+                tree.fillStyle(0x8B4513); tree.fillRect(14, 30, 12, 30);
+                tree.fillStyle(0x228B22);
+                tree.fillCircle(20, 25, 20); tree.fillCircle(12, 20, 15); tree.fillCircle(28, 20, 15); tree.fillCircle(20, 12, 18);
+                tree.generateTexture('tree', 40, 60); tree.destroy();
+
+                // Bush
+                const bush = this.make.graphics({x: 0, y: 0, add: false});
+                bush.fillStyle(0x2E8B57); bush.fillCircle(12, 16, 12); bush.fillCircle(20, 18, 10); bush.fillCircle(4, 18, 10);
+                bush.generateTexture('bush', 24, 28); bush.destroy();
+
+                // Mushroom House
+                const mushhouse = this.make.graphics({x: 0, y: 0, add: false});
+                mushhouse.fillStyle(0xFF6347); mushhouse.fillEllipse(24, 12, 40, 24);
+                mushhouse.fillStyle(0xFFFFFF); for (let i = 0; i < 5; i++) mushhouse.fillCircle(10 + i * 8, 12, 3);
+                mushhouse.fillStyle(0xF5DEB3); mushhouse.fillRect(14, 24, 20, 24);
+                mushhouse.fillStyle(0x8B4513); mushhouse.fillRect(20, 32, 8, 12);
+                mushhouse.generateTexture('mushhouse', 48, 48); mushhouse.destroy();
+
+                // Food items
+                const focaccia = this.make.graphics({x: 0, y: 0, add: false});
+                focaccia.fillStyle(0xD2691E); focaccia.fillRoundedRect(0, 4, 24, 16, 4);
+                focaccia.fillStyle(0xF4A460); focaccia.fillRoundedRect(2, 6, 20, 12, 3);
+                focaccia.fillStyle(0x8B4513); for (let i = 0; i < 4; i++) { focaccia.fillCircle(6 + i * 4, 10, 1); focaccia.fillCircle(6 + i * 4, 14, 1); }
+                focaccia.generateTexture('focaccia', 24, 24); focaccia.destroy();
+
+                // iPad
+                const ipad = this.make.graphics({x: 0, y: 0, add: false});
+                ipad.fillStyle(0x2F2F2F); ipad.fillRoundedRect(0, 0, 32, 24, 2);
+                ipad.fillStyle(0x4A90E2); ipad.fillRect(2, 2, 28, 20);
+                ipad.fillStyle(0xFFFFFF); ipad.fillRect(8, 8, 6, 6); ipad.fillRect(16, 8, 6, 6);
+                ipad.generateTexture('ipad', 32, 24); ipad.destroy();
+
+                // Study book
+                const book = this.make.graphics({x: 0, y: 0, add: false});
+                book.fillStyle(0x4169E1); book.fillRect(0, 0, 28, 32);
+                book.fillStyle(0x6495ED); book.fillRect(2, 2, 24, 28);
+                book.fillStyle(0x000000); for (let i = 0; i < 5; i++) book.fillRect(6, 8 + i * 4, 16, 2);
+                book.generateTexture('book', 28, 32); book.destroy();
+
+                // Wardrobe
+                const wardrobe = this.make.graphics({x: 0, y: 0, add: false});
+                wardrobe.fillStyle(0x8B4513); wardrobe.fillRect(0, 0, 48, 64);
+                wardrobe.fillStyle(0xA0522D); wardrobe.fillRect(2, 2, 44, 60);
+                wardrobe.fillStyle(0xFFD700); wardrobe.fillCircle(12, 32, 3); wardrobe.fillCircle(36, 32, 3);
+                wardrobe.generateTexture('wardrobe', 48, 64); wardrobe.destroy();
+
+                // Flower Knows
+                const fk = this.make.graphics({x: 0, y: 0, add: false});
+                fk.fillStyle(0xFFD700); fk.fillRect(4, 8, 16, 12);
+                fk.fillStyle(0xFF69B4); fk.fillRect(6, 10, 12, 8);
+                for (let i = 0; i < 4; i++) { fk.fillStyle(i % 2 === 0 ? 0xFF1493 : 0xFFB6D9); fk.fillCircle(8 + i * 3, 14, 2); }
+                fk.generateTexture('flowerkn', 24, 24); fk.destroy();
+
+                // Mom NPC
+                const mom = this.make.graphics({x: 0, y: 0, add: false});
+                mom.fillStyle(0x8B4513); mom.fillRect(3, 0, 10, 8);
+                mom.fillStyle(0xFFDDB7); mom.fillRect(5, 3, 6, 5);
+                mom.fillStyle(0x000000); mom.fillRect(6, 5, 1, 1); mom.fillRect(9, 5, 1, 1);
+                mom.fillStyle(0xFF69B4); mom.fillRect(7, 7, 2, 1);
+                mom.fillStyle(0x9370DB); mom.fillRect(2, 8, 12, 12);
+                mom.generateTexture('mom', 16, 20); mom.destroy();
+
+                // Dad NPC
+                const dad = this.make.graphics({x: 0, y: 0, add: false});
+                dad.fillStyle(0x2F4F4F); dad.fillRect(3, 0, 10, 8);
+                dad.fillStyle(0xFFDDB7); dad.fillRect(5, 3, 6, 5);
+                dad.fillStyle(0x8B4513); dad.fillRect(5, 6, 6, 2);
+                dad.fillStyle(0x000000); dad.fillRect(6, 5, 1, 1); dad.fillRect(9, 5, 1, 1);
+                dad.fillStyle(0x4682B4); dad.fillRect(2, 8, 12, 12);
+                dad.generateTexture('dad', 16, 20); dad.destroy();
+
+                // Brother NPC
+                const brother = this.make.graphics({x: 0, y: 0, add: false});
+                brother.fillStyle(0x654321); brother.fillRect(4, 0, 8, 6);
+                brother.fillStyle(0xFFDDB7); brother.fillRect(5, 3, 6, 4);
+                brother.fillStyle(0x000000); brother.fillRect(6, 4, 1, 1); brother.fillRect(9, 4, 1, 1);
+                brother.fillStyle(0x32CD32); brother.fillRect(3, 7, 10, 10);
+                brother.generateTexture('brother', 16, 17); brother.destroy();
+
+                // Shopping items
+                const shirt = this.make.graphics({x: 0, y: 0, add: false});
+                shirt.fillStyle(0xFFB6D9); shirt.fillRect(4, 4, 24, 28);
+                shirt.fillStyle(0xFF69B4); shirt.fillRect(6, 6, 20, 24);
+                shirt.fillStyle(0xFFFFFF); shirt.fillCircle(16, 16, 3);
+                shirt.generateTexture('shirt', 32, 32); shirt.destroy();
+
+                const jeans = this.make.graphics({x: 0, y: 0, add: false});
+                jeans.fillStyle(0x4169E1); jeans.fillRect(6, 4, 20, 28);
+                jeans.fillStyle(0x6495ED); jeans.fillRect(8, 6, 7, 26); jeans.fillRect(17, 6, 7, 26);
+                jeans.generateTexture('jeans', 32, 32); jeans.destroy();
+
+                const bracelet = this.make.graphics({x: 0, y: 0, add: false});
+                bracelet.fillStyle(0xFFD700); bracelet.fillCircle(16, 16, 10, 10);
+                bracelet.fillStyle(0xFFFFFF); bracelet.fillCircle(16, 16, 6, 6);
+                bracelet.fillStyle(0xFFD700); for (let i = 0; i < 4; i++) { const angle = (i * Math.PI * 2) / 4; bracelet.fillCircle(16 + Math.cos(angle) * 8, 16 + Math.sin(angle) * 8, 3); }
+                bracelet.generateTexture('bracelet', 32, 32); bracelet.destroy();
+
+                const perfume = this.make.graphics({x: 0, y: 0, add: false});
+                perfume.fillStyle(0xFF69B4); perfume.fillRect(10, 8, 12, 20);
+                perfume.fillStyle(0xFFB6D9); perfume.fillRect(12, 10, 8, 16);
+                perfume.fillStyle(0xFFD700); perfume.fillRect(13, 4, 6, 6);
+                perfume.generateTexture('perfume', 32, 32); perfume.destroy();
+
+                // Cashier
+                const cashier = this.make.graphics({x: 0, y: 0, add: false});
+                cashier.fillStyle(0xFF1493); cashier.fillRect(3, 0, 10, 8);
+                cashier.fillStyle(0xFFDDB7); cashier.fillRect(5, 3, 6, 5);
+                cashier.fillStyle(0x000000); cashier.fillRect(6, 5, 1, 1); cashier.fillRect(9, 5, 1, 1);
+                cashier.fillStyle(0xFF69B4); cashier.fillRect(7, 7, 2, 1);
+                cashier.fillStyle(0xFFB6D9); cashier.fillRect(2, 8, 12, 12);
+                cashier.generateTexture('cashier', 16, 20); cashier.destroy();
+
+                // Car
+                const car = this.make.graphics({x: 0, y: 0, add: false});
+                car.fillStyle(0xFF0000); car.fillRoundedRect(0, 8, 48, 24, 4);
+                car.fillStyle(0x87CEEB); car.fillRect(8, 12, 12, 8); car.fillRect(28, 12, 12, 8);
+                car.fillStyle(0x000000); car.fillCircle(12, 32, 4); car.fillCircle(36, 32, 4);
+                car.generateTexture('car', 48, 36); car.destroy();
+
+                // Blue Car
+                const blueCar = this.make.graphics({x: 0, y: 0, add: false});
+                blueCar.fillStyle(0x0000FF); blueCar.fillRoundedRect(0, 8, 48, 24, 4);
+                blueCar.fillStyle(0x87CEEB); blueCar.fillRect(8, 12, 12, 8); blueCar.fillRect(28, 12, 12, 8);
+                blueCar.fillStyle(0x000000); blueCar.fillCircle(12, 32, 4); blueCar.fillCircle(36, 32, 4);
+                blueCar.generateTexture('blueCar', 48, 36); blueCar.destroy();
+
+                // Yellow Taxi
+                const taxi = this.make.graphics({x: 0, y: 0, add: false});
+                taxi.fillStyle(0xFFFF00); taxi.fillRoundedRect(0, 8, 48, 24, 4);
+                taxi.fillStyle(0x000000); taxi.fillRect(16, 4, 16, 6); // Taxi sign
+                taxi.fillStyle(0x87CEEB); taxi.fillRect(8, 12, 12, 8); taxi.fillRect(28, 12, 12, 8);
+                taxi.fillStyle(0x000000); taxi.fillCircle(12, 32, 4); taxi.fillCircle(36, 32, 4);
+                taxi.generateTexture('taxi', 48, 36); taxi.destroy();
+
+                // Bus
+                const bus = this.make.graphics({x: 0, y: 0, add: false});
+                bus.fillStyle(0xFFA500); bus.fillRoundedRect(0, 8, 80, 28, 4);
+                bus.fillStyle(0x87CEEB); 
+                for(let i = 0; i < 4; i++) {
+                    bus.fillRect(10 + i * 18, 12, 12, 10);
+                }
+                bus.fillStyle(0x000000); 
+                bus.fillCircle(15, 36, 5); bus.fillCircle(65, 36, 5);
+                bus.generateTexture('bus', 80, 40); bus.destroy();
+
+                // Luggage
+                const luggage = this.make.graphics({x: 0, y: 0, add: false});
+                luggage.fillStyle(0x8B4513); luggage.fillRoundedRect(0, 4, 32, 28, 4);
+                luggage.fillStyle(0xA0522D); luggage.fillRect(2, 6, 28, 24);
+                luggage.fillStyle(0x000000); luggage.fillRect(14, 0, 4, 6); // Handle
+                luggage.fillStyle(0xFFD700); luggage.fillRect(8, 16, 16, 2); // Strap
+                luggage.generateTexture('luggage', 32, 32); luggage.destroy();
+
+                // Subway Train
+                const train = this.make.graphics({x: 0, y: 0, add: false});
+                train.fillStyle(0xC0C0C0); train.fillRoundedRect(0, 0, 120, 60, 8);
+                train.fillStyle(0x2F4F4F); 
+                train.fillRect(10, 15, 25, 30); train.fillRect(45, 15, 25, 30); train.fillRect(80, 15, 25, 30);
+                train.fillStyle(0xFF0000); train.fillRect(0, 25, 120, 8); // Red stripe
+                train.fillStyle(0x000000); train.fillCircle(20, 55, 4); train.fillCircle(100, 55, 4);
+                train.generateTexture('train', 120, 60); train.destroy();
+
+                // Streetlight
+                const streetlight = this.make.graphics({x: 0, y: 0, add: false});
+                streetlight.fillStyle(0x696969); streetlight.fillRect(14, 20, 4, 40);
+                streetlight.fillStyle(0xFFD700); streetlight.fillCircle(16, 15, 8);
+                streetlight.fillStyle(0xFFF8DC); streetlight.fillCircle(16, 15, 5);
+                streetlight.generateTexture('streetlight', 32, 60); streetlight.destroy();
+
+                // Snacks
+                const chips = this.make.graphics({x: 0, y: 0, add: false});
+                chips.fillStyle(0xFFD700); chips.fillRect(4, 8, 24, 20);
+                chips.fillStyle(0xFF0000); chips.fillRect(6, 10, 20, 4);
+                chips.fillStyle(0xFFA500); chips.fillCircle(16, 20, 4);
+                chips.generateTexture('chips', 32, 32); chips.destroy();
+
+                const cola = this.make.graphics({x: 0, y: 0, add: false});
+                cola.fillStyle(0xFF0000); cola.fillRect(10, 6, 12, 22);
+                cola.fillStyle(0xFFFFFF); cola.fillRect(12, 12, 8, 4);
+                cola.fillStyle(0x8B0000); cola.fillRect(13, 4, 6, 4);
+                cola.generateTexture('cola', 32, 32); cola.destroy();
+
+                const candy = this.make.graphics({x: 0, y: 0, add: false});
+                candy.fillStyle(0xFF69B4); candy.fillCircle(10, 16, 6);
+                candy.fillStyle(0xFF1493); candy.fillCircle(16, 16, 6);
+                candy.fillStyle(0xFFB6D9); candy.fillCircle(22, 16, 6);
+                candy.fillStyle(0xFFFFFF); candy.fillRect(8, 14, 16, 4);
+                candy.generateTexture('candy', 32, 32); candy.destroy();
+
+                const water = this.make.graphics({x: 0, y: 0, add: false});
+                water.fillStyle(0x87CEEB); water.fillRect(10, 6, 12, 22);
+                water.fillStyle(0xE0FFFF); water.fillRect(12, 8, 8, 18);
+                water.fillStyle(0x4682B4); water.fillRect(13, 4, 6, 4);
+                water.generateTexture('water', 32, 32); water.destroy();
+
+                // Airport stairs
+                const stairs = this.make.graphics({x: 0, y: 0, add: false});
+                stairs.fillStyle(0xC0C0C0);
+                for (let i = 0; i < 5; i++) {
+                    stairs.fillRect(i * 8, 40 - i * 8, 40 - i * 8, 8);
+                }
+                
+            }
+
+            setupGameState() {
+                this.gameState = {
+                    phase: 'indoor',
+                    indoorTasks: { findIPad: false, study: false, changeOutfit: false, talkToMom: false, talkToDad: false, talkToBrother: false, complete: false },
+                    outdoorTasks: { flowers: 0, cats: 0, food: 0, cosmetic: false, complete: false },
+                    milanTasks: { shirt: false, jeans: false, bracelet: false, perfume: false, paidAtCashier: false, complete: false },
+                    airportTasks: { chips: false, cola: false, candy: false, water: false, complete: false },
+                    subwayTasks: { luggage: false, complete: false },
+                    nycTasks: { streetlights: 0 }
+                };
+                this.isDialogActive = false;
+                this.currentDialog = [];
+                this.dialogIndex = 0;
+                this.interactables = [];
+                this.markers = [];
+                this.cars = [];
+                this.touchControls = { up: false, down: false, left: false, right: false };
+                this.hasChangedOutfit = false;
+            }
+
+            createWorld() {
+                this.coords = {
+                    indoor: { doorY: 19 * 32 },
+                    outdoor: { startY: 25 * 32, gateY: 48 * 32 },
+                    milan: { startY: 53 * 32, exitY: 70 * 32 },
+                    airport: { startY: 72 * 32, exitY: 95 * 32 },
+                    subway: { startY: 98 * 32, exitY: 109 * 32 },
+                    nyc: { startY: 110 * 32 }
+                };
+
+                this.createBedroom();
+                this.createOutdoorWorld();
+                this.createMilanShop();
+                this.createAirport();
+                this.createSubwayStation();
+                this.createNYCStreets();
+            }
+
+            createBedroom() {
+                for (let x = 8; x < 20; x++) {
+                    for (let y = 8; y < 19; y++) {
+                        this.add.image(x * 32, y * 32, 'floor');
+                    }
+                }
+                for (let x = 8; x < 20; x++) {
+                    this.add.image(x * 32, 7 * 32, 'wall');
+                    this.add.image(x * 32, 19 * 32, 'wall');
+                }
+                for (let y = 8; y < 19; y++) {
+                    this.add.image(7 * 32, y * 32, 'wall');
+                    this.add.image(20 * 32, y * 32, 'wall');
+                }
+
+                this.add.image(14 * 32, 13 * 32, 'rug');
+                this.add.image(12 * 32, 10 * 32, 'bed');
+                this.add.image(16 * 32, 11 * 32, 'table');
+                this.add.image(9 * 32, 10 * 32, 'wardrobe');
+
+                this.add.image(14 * 32, 14 * 32, 'ipad');
+                this.createTask(14 * 32, 14 * 32, 'findIPad', 'indoor', () => {
+                    this.showDialog(["Found your iPad!", "Time for some Roblox later... maybe TikTok too."]);
+                    this.gameState.indoorTasks.findIPad = true;
+                    this.checkIndoorProgress();
+                });
+
+                this.add.image(16 * 32, 11 * 32, 'book');
+                this.createTask(16 * 32, 11 * 32, 'study', 'indoor', () => {
+                    this.showDialog(["Time to study biology!", "One page says: 'the cell evolved quickly'", "Knowledge is beautiful! ♥"]);
+                    this.gameState.indoorTasks.study = true;
+                    this.checkIndoorProgress();
+                });
+
+                this.createTask(9 * 32, 10 * 32, 'changeOutfit', 'indoor', () => {
+                    this.showDialog(["Time to pick a cute outfit!", "Pink looks perfect today. ♥"]);
+                    this.gameState.indoorTasks.changeOutfit = true;
+                    this.checkIndoorProgress();
+                });
+
+                this.add.image(17 * 32, 15 * 32, 'mom');
+                this.createTask(17 * 32, 15 * 32, 'talkToMom', 'indoor', () => {
+                    this.showDialog(["Mom: 'Buongiorno tesoro! Have a wonderful day!'", "Mom: 'Remember to be kind and patient.'"]);
+                    this.gameState.indoorTasks.talkToMom = true;
+                    this.checkIndoorProgress();
+                });
+
+                this.add.image(10 * 32, 17 * 32, 'dad');
+                this.createTask(10 * 32, 17 * 32, 'talkToDad', 'indoor', () => {
+                    this.showDialog(["Dad: 'Ciao bella! Ready for your journey?'", "Dad: 'Stay safe and enjoy every moment!'"]);
+                    this.gameState.indoorTasks.talkToDad = true;
+                    this.checkIndoorProgress();
+                });
+
+                this.add.image(15 * 32, 17 * 32, 'brother');
+                this.createTask(15 * 32, 17 * 32, 'talkToBrother', 'indoor', () => {
+                    this.showDialog(["Brother: 'Have fun! Bring me back something cool!'", "Brother: 'I'll miss you sis!'"]);
+                    this.gameState.indoorTasks.talkToBrother = true;
+                    this.checkIndoorProgress();
+                });
+            }
+
+            createOutdoorWorld() {
+                for (let x = 0; x < 50; x++) {
+                    for (let y = 20; y < 50; y++) {
+                        this.add.image(x * 32, y * 32, 'grass');
+                    }
+                }
+
+                const treePos = [{x: 5, y: 25}, {x: 10, y: 23}, {x: 15, y: 28}, {x: 38, y: 26}, {x: 42, y: 30}, {x: 45, y: 24}, {x: 8, y: 35}, {x: 40, y: 36}, {x: 12, y: 42}];
+                treePos.forEach(p => this.add.image(p.x * 32, p.y * 32, 'tree'));
+
+                const bushPos = [{x: 18, y: 24}, {x: 22, y: 26}, {x: 28, y: 25}, {x: 33, y: 27}, {x: 19, y: 34}, {x: 30, y: 35}, {x: 25, y: 40}, {x: 35, y: 41}];
+                bushPos.forEach(p => this.add.image(p.x * 32, p.y * 32, 'bush'));
+
+                this.add.image(17 * 32, 30 * 32, 'mushhouse');
+                this.add.image(36 * 32, 32 * 32, 'mushhouse');
+
+                const flowers = [{x: 20, y: 22, type: 'lily'}, {x: 25, y: 23, type: 'tulip'}, {x: 30, y: 21, type: 'lily'}, {x: 35, y: 24, type: 'tulip'}];
+                flowers.forEach((p, i) => {
+                    const s = this.add.image(p.x * 32, p.y * 32, p.type);
+                    this.createTask(p.x * 32, p.y * 32, `flower_${i}`, 'outdoor', () => {
+                        s.destroy();
+                        this.showDialog(["Picked some beautiful flowers! ✿"]);
+                        this.gameState.outdoorTasks.flowers++;
+                        this.checkOutdoorProgress();
+                    }, s);
+                });
+
+                const cats = [{x: 23, y: 28}, {x: 32, y: 29}, {x: 27, y: 37}];
+                cats.forEach((p, i) => {
+                    const s = this.add.image(p.x * 32, p.y * 32, 'cat');
+                    this.createTask(p.x * 32, p.y * 32, `cat_${i}`, 'outdoor', () => {
+                        this.showDialog(["*purrrr* The cat is so happy! ♥"]);
+                        s.setTint(0xFFB6C1);
+                        this.gameState.outdoorTasks.cats++;
+                        this.checkOutdoorProgress();
+                    }, s);
+                });
+
+                const foods = [{x: 20, y: 38, name: 'Focaccia'}, {x: 26, y: 39, name: 'Crostini'}, {x: 31, y: 40, name: 'Piadina'}];
+                foods.forEach((f, i) => {
+                    const s = this.add.image(f.x * 32, f.y * 32, 'focaccia');
+                    this.createTask(f.x * 32, f.y * 32, `food_${i}`, 'outdoor', () => {
+                        s.destroy();
+                        this.showDialog([`Found ${f.name}! Delizioso! 🍕`]);
+                        this.gameState.outdoorTasks.food++;
+                        this.checkOutdoorProgress();
+                    }, s);
+                });
+
+                const fk = this.add.image(29 * 32, 33 * 32, 'flowerkn');
+                this.tweens.add({ targets: fk, y: 33 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(29 * 32, 33 * 32, 'cosmetic', 'outdoor', () => {
+                    fk.destroy();
+                    this.showDialog(["A Flower Knows makeup palette!", "So sparkly and perfect! ✨"]);
+                    this.gameState.outdoorTasks.cosmetic = true;
+                    this.checkOutdoorProgress();
+                }, fk);
+            }
+
+            createMilanShop() {
+                for (let x = 0; x < 30; x++) {
+                    for (let y = 52; y < 70; y++) {
+                        this.add.image(x * 32, y * 32, 'floor');
+                    }
+                }
+                for (let x = 0; x < 30; x++) {
+                    this.add.image(x * 32, 51 * 32, 'wall');
+                    this.add.image(x * 32, 70 * 32, 'wall');
+                }
+
+                this.add.text(15 * 32, 53 * 32, '✿ Milano Boutique ✿', { fontSize: '32px', fill: '#FF69B4', fontStyle: 'bold', stroke: '#FFFFFF', strokeThickness: 4 }).setOrigin(0.5);
+
+                const shirt = this.add.image(8 * 32, 59 * 32, 'shirt');
+                this.createTask(8 * 32, 59 * 32, 'shirt', 'milan', () => {
+                    shirt.destroy();
+                    this.showDialog(["Found a cute pink shirt!", "This will look adorable! 💕"]);
+                    this.gameState.milanTasks.shirt = true;
+                    this.updateQuestUI();
+                }, shirt);
+
+                const jeans = this.add.image(13 * 32, 59 * 32, 'jeans');
+                this.createTask(13 * 32, 59 * 32, 'jeans', 'milan', () => {
+                    jeans.destroy();
+                    this.showDialog(["Perfect pair of jeans!", "Comfortable and stylish! 👖"]);
+                    this.gameState.milanTasks.jeans = true;
+                    this.updateQuestUI();
+                }, jeans);
+
+                const bracelet = this.add.image(18 * 32, 59 * 32, 'bracelet');
+                this.tweens.add({ targets: bracelet, angle: 360, duration: 6000, repeat: -1 });
+                this.createTask(18 * 32, 59 * 32, 'bracelet', 'milan', () => {
+                    bracelet.destroy();
+                    this.showDialog(["Vintage Alhambra bracelet in yellow gold!", "Absolutely stunning! ✨"]);
+                    this.gameState.milanTasks.bracelet = true;
+                    this.updateQuestUI();
+                }, bracelet);
+
+                const perfume = this.add.image(23 * 32, 59 * 32, 'perfume');
+                this.tweens.add({ targets: perfume, y: 59 * 32 - 8, duration: 1500, yoyo: true, repeat: -1 });
+                this.createTask(23 * 32, 59 * 32, 'perfume', 'milan', () => {
+                    perfume.destroy();
+                    this.showDialog(["Yara perfume spray!", "Smells like a dream! 🌸"]);
+                    this.gameState.milanTasks.perfume = true;
+                    this.updateQuestUI();
+                }, perfume);
+
+                const cashier = this.add.image(15 * 32, 64 * 32, 'cashier');
+                this.createTask(15 * 32, 64 * 32, 'cashier', 'milan', () => {
+                    const t = this.gameState.milanTasks;
+                    if (t.shirt && t.jeans && t.bracelet && t.perfume) {
+                        this.showDialog([
+                            "Cashier: 'Bellissima! Your total comes to...'",
+                            "*Isaac sends the money* 💸",
+                            "Cashier: 'All paid! Enjoy your items!'",
+                            "What a wonderful shopping trip!"
+                        ]);
+                        this.gameState.milanTasks.paidAtCashier = true;
+                        this.gameState.milanTasks.complete = true;
+                        this.updateQuestUI();
+                    } else {
+                        this.showDialog(["Cashier: 'Please collect all items first!'"]);
+                    }
+                }, cashier);
+            }
+
+            createAirport() {
+                // Airport terminal floor
+                for (let x = 5; x < 45; x++) {
+                    for (let y = 73; y < 88; y++) {
+                        this.add.image(x * 32, y * 32, 'floor');
+                    }
+                }
+
+                // Airport walls
+                for (let x = 5; x < 45; x++) {
+                    this.add.image(x * 32, 72 * 32, 'wall');
+                }
+                for (let y = 73; y < 88; y++) {
+                    this.add.image(4 * 32, y * 32, 'wall');
+                    this.add.image(45 * 32, y * 32, 'wall');
+                }
+
+                // Title
+                this.add.text(25 * 32, 73 * 32, '✈️ AIRPORT TERMINAL ✈️', {
+                    fontSize: '32px',
+                    fill: '#4682B4',
+                    fontStyle: 'bold',
+                    stroke: '#FFFFFF',
+                    strokeThickness: 4
+                }).setOrigin(0.5);
+
+
+                // Information board
+                const board = this.add.rectangle(25 * 32, 75 * 32, 160, 60, 0x000000);
+                this.add.text(25 * 32, 75 * 32, 'Flight to NYC\nBoarding Soon', {
+                    fontSize: '14px',
+                    fill: '#00FF00',
+                    align: 'center'
+                }).setOrigin(0.5);
+
+                // Snack items to collect
+                const chips = this.add.image(12 * 32, 81 * 32, 'chips');
+                this.tweens.add({ targets: chips, y: 81 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(12 * 32, 81 * 32, 'chips', 'airport', () => {
+                    chips.destroy();
+                    this.showDialog(["Grabbed some chips! 🍟"]);
+                    this.gameState.airportTasks.chips = true;
+                    this.checkAirportProgress();
+                }, chips);
+
+                const cola = this.add.image(18 * 32, 81 * 32, 'cola');
+                this.tweens.add({ targets: cola, y: 81 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(18 * 32, 81 * 32, 'cola', 'airport', () => {
+                    cola.destroy();
+                    this.showDialog(["Got a Coca-Cola! 🥤"]);
+                    this.gameState.airportTasks.cola = true;
+                    this.checkAirportProgress();
+                }, cola);
+
+                const candy = this.add.image(24 * 32, 81 * 32, 'candy');
+                this.tweens.add({ targets: candy, y: 81 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(24 * 32, 81 * 32, 'candy', 'airport', () => {
+                    candy.destroy();
+                    this.showDialog(["Picked up some candy! 🍬"]);
+                    this.gameState.airportTasks.candy = true;
+                    this.checkAirportProgress();
+                }, candy);
+
+                const water = this.add.image(30 * 32, 81 * 32, 'water');
+                this.tweens.add({ targets: water, y: 81 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(30 * 32, 81 * 32, 'water', 'airport', () => {
+                    water.destroy();
+                    this.showDialog(["Got a water bottle! 💧"]);
+                    this.gameState.airportTasks.water = true;
+                    this.checkAirportProgress();
+                }, water);
+
+                
+                // === ENHANCED AIRPORT TERMINAL ===
+
+                // Symmetrical airport windows (lower, smaller, away from center)
+                const windowY = 80 * 32;
+                const windowOffsets = [10, 38]; // left & right sides inside walls
+
+                windowOffsets.forEach(baseX => {
+                    for (let i = 0; i < 2; i++) {
+                        const winX = (baseX + i * 4) * 32;
+                        const frame = this.add.rectangle(winX, windowY, 80, 50, 0x0B1D3A);
+                        frame.setStrokeStyle(3, 0xFFFFFF);
+
+                        const cloud1 = this.add.circle(winX - 12, windowY - 8, 2, 0xFFFFFF);
+                        const cloud2 = this.add.circle(winX + 14, windowY + 10, 2, 0xFFFFFF);
+
+                        this.tweens.add({
+                            targets: [cloud1, cloud2],
+                            x: '+=20',
+                            duration: 5000,
+                            yoyo: true,
+                            repeat: -1
+                        });
+                    }
+                });
+
+                // Seating area with NPCs
+
+                for (let i = 0; i < 4; i++) {
+                    this.add.rectangle((12 + i * 4) * 32, 86 * 32, 48, 20, 0x4169E1);
+                    const npc = this.add.sprite((12 + i * 4) * 32, 85 * 32, 'npc');
+                    npc.setScale(0.9);
+                }
+
+                // Plane selection row
+                const planeData = [
+                    { key: 'plane1', color: 0xFF69B4, name: 'Pink Air' },
+                    { key: 'plane2', color: 0x87CEEB, name: 'Blue Sky' },
+                    { key: 'plane3', color: 0xFFD700, name: 'Golden Wings' },
+                    { key: 'plane4', color: 0x2ECC71, name: 'Emerald Air' }
+                ];
+
+                planeData.forEach((p, i) => {
+                    const plane = this.add.image((16 + i * 5) * 32, 93 * 32, 'plane');
+                    plane.setTint(p.color);
+                    
+                    this.tweens.add({ targets: plane, y: plane.y - 4, duration: 1200, yoyo: true, repeat: -1 });
+
+                    this.add.text(plane.x, plane.y + 30, p.name + "\nFirst Class", {
+                        fontSize: '12px',
+                        fill: '#FFFFFF',
+                        align: 'center'
+                    }).setOrigin(0.5);
+    
+
+                    this.createTask(plane.x, plane.y, `plane_${i}`, 'airport', () => {
+                        if (!this.gameState.airportTasks.complete) {
+                            this.showDialog([
+                                "You still need all your snacks first!"
+                            ]);
+                            return;
+                        }
+
+                        this.showDialog([
+                            `Boarding ${p.name} ✈️`,
+                            "First Class Selected",
+                            "Flying to New York..."
+                        ]);
+
+                        this.time.delayedCall(1200, () => {
+                            this.gameState.phase = 'subway';
+                            this.player.x = 15 * 32;
+                            this.player.y = 101 * 32;
+                            this.cameras.main.fadeIn(1000);
+                            this.showDialog([
+                                "Welcome to New York!",
+                                "You're in the subway station."
+                            ]);
+                            this.updateQuestUI();
+                        });
+                    }, plane);
+                });
+
+                // === END ENHANCED AIRPORT TERMINAL ===
+
+// Grass area outside for the plane (separate section)
+                for (let x = 0; x < 50; x++) {
+                    for (let y = 88; y < 96; y++) {
+                        this.add.image(x * 32, y * 32, 'grass');
+                    }
+                }
+
+                
+                
+
+                
+
+                
+                
+                // Runway lights
+                for (let x = 18; x < 33; x += 2) {
+                    const light = this.add.circle(x * 32, 94 * 32, 3, 0xFFFF99);
+                    this.tweens.add({
+                        targets: light,
+                        alpha: { from: 0.2, to: 1 },
+                        duration: 500,
+                        yoyo: true,
+                        repeat: -1,
+                        delay: (x - 18) * 100
+                    });
+                }
+
+                // Small runway under plane
+                for (let x = 18; x < 33; x++) {
+                    const r = this.add.rectangle(x * 32, 94 * 32, 32, 16, 0x555555);
+                    this.add.rectangle(x * 32, 91 * 32, 6, 2, 0xFFFFFF);
+                }
+
+                
+                
+                // Ambient night glow near plane
+                const nightGlow = this.add.circle(25 * 32, 93 * 32, 180, 0x0B1D3A, 0.35);
+                nightGlow.setDepth(-1);
+
+                // Boarding gate doors near plane
+                const gateY = 88 * 32;
+                const gateLeft = this.add.rectangle(24.5 * 32, gateY, 20, 50, 0xC0C0C0);
+                const gateRight = this.add.rectangle(25.5 * 32, gateY, 20, 50, 0xC0C0C0);
+                
+                // Automatic boarding gate doors
+
+                // Automatic boarding gate doors (open then close after passing)
+                let doorsOpen = false;
+
+                this.time.addEvent({
+                    delay: 100,
+                    loop: true,
+                    callback: () => {
+                        const dist = Phaser.Math.Distance.Between(
+                            this.player.x,
+                            this.player.y,
+                            25 * 32,
+                            gateY
+                        );
+
+                        // Open doors when approaching from terminal side
+                        if (dist < 80 && !doorsOpen && this.player.y < gateY) {
+                            gateLeft.x -= 14;
+                            gateRight.x += 14;
+                            doorsOpen = true;
+                        }
+
+                        // Close doors after player passes through
+                        if (doorsOpen && this.player.y > gateY + 30) {
+                            gateLeft.x = 24.5 * 32;
+                            gateRight.x = 25.5 * 32;
+                            doorsOpen = false;
+                        }
+                    }
+                });
+
+                this.add.text(25 * 32, gateY - 32, 'GATE A1', {
+                    fontSize: '14px',
+                    fill: '#FFFFFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                
+                // Plane headlights
+                const headlightLeft = this.add.circle(23.5 * 32, 92.8 * 32, 6, 0xFFFFCC, 0.9);
+                const headlightRight = this.add.circle(26.5 * 32, 92.8 * 32, 6, 0xFFFFCC, 0.9);
+
+                this.tweens.add({
+                    targets: [headlightLeft, headlightRight],
+                    alpha: { from: 0.3, to: 0.9 },
+                    duration: 600,
+                    yoyo: true,
+                    repeat: -1
+                });
+
+                // The plane at the top of stairs
+                const plane = this.add.image(25 * 32, 90 * 32, 'plane');
+                                this.tweens.add({ targets: plane, y: 90 * 32 - 3, duration: 1000, yoyo: true, repeat: -1 });
+
+                this.createTask(25 * 32, 92 * 32, 'board_plane', 'airport', () => {
+                    if (!this.gameState.airportTasks.complete) {
+                        this.showDialog(["You need to collect all snacks first!", "Chips, Cola, Candy, and Water!"]);
+                        return;
+                    }
+                    
+                    this.showDialog([
+                        "Boarding the flight to New York...",
+                        "Goodbye Italy!",
+                        "Isaac is waiting... ♥"
+                    ]);
+                    
+                    this.time.delayedCall(1000, () => {
+                        // removed fade-to-black for credits
+                        this.time.delayedCall(1000, () => {
+                            this.gameState.phase = 'subway';
+                            this.player.x = 15 * 32;
+                            this.player.y = 101 * 32;
+                            this.cameras.main.fadeIn(1000);
+                            this.showDialog([
+                                "Welcome to New York!",
+                                "You're in the subway station.",
+                                "Find your luggage before boarding the train."
+                            ]);
+                            this.updateQuestUI();
+                        });
+                    });
+                }, plane);
+            }
+
+            checkAirportProgress() {
+                const t = this.gameState.airportTasks;
+                if (t.chips && t.cola && t.candy && t.water) {
+                    t.complete = true;
+                    this.showDialog(["Got all the snacks!", "Ready to board the plane!"]);
+                }
+                this.updateQuestUI();
+            }
+
+            createSubwayStation() {
+                // Subway platform floor
+                for (let x = 0; x < 50; x++) {
+                    for (let y = 100; y < 108; y++) {
+                        this.add.image(x * 32, y * 32, 'floor');
+                    }
+                }
+
+                // Platform walls
+                for (let x = 0; x < 50; x++) {
+                    this.add.image(x * 32, 99 * 32, 'wall');
+                }
+
+                // Title
+                this.add.text(25 * 32, 101 * 32, '🚇 NYC Subway Station 🚇', { 
+                    fontSize: '32px', 
+                    fill: '#FFD700', 
+                    fontStyle: 'bold', 
+                    stroke: '#000000', 
+                    strokeThickness: 4 
+                }).setOrigin(0.5);
+
+                // Subway tracks (yellow warning line)
+                for (let x = 0; x < 50; x++) {
+                    const line = this.add.rectangle(x * 32, 107 * 32, 32, 4, 0xFFFF00);
+                }
+
+                // Train tracks below the yellow line
+                for (let i = 0; i < 25; i++) {
+                    const track = this.add.rectangle(i * 64 + 32, 108 * 32, 48, 4, 0x696969);
+                }
+
+                // Luggage
+                const luggage = this.add.image(20 * 32, 104 * 32, 'luggage').setDepth(10);
+                this.tweens.add({ targets: luggage, y: 104 * 32 - 5, duration: 1000, yoyo: true, repeat: -1 });
+                this.createTask(20 * 32, 104 * 32, 'luggage', 'subway', () => {
+                    luggage.destroy();
+                    this.showDialog(["Got your luggage!", "Now you can board the train."]);
+                    this.gameState.subwayTasks.luggage = true;
+                    this.updateQuestUI();
+                }, luggage);
+
+                // Subway Train on the tracks
+                const train = this.add.image(30 * 32, 105 * 32, 'train').setDepth(10);
+                this.createTask(30 * 32, 105 * 32, 'train', 'subway', () => {
+                    if (!this.gameState.subwayTasks.luggage) {
+                        this.showDialog(["You need to get your luggage first!"]);
+                        return;
+                    }
+                    
+                    this.showDialog([
+                        "All aboard!",
+                        "Next stop: NYC Streets!"
+                    ]);
+                    
+                    this.time.delayedCall(1000, () => {
+                        // removed fade-to-black for credits
+                        this.time.delayedCall(1000, () => {
+                            this.gameState.phase = 'nyc_streets';
+                            this.player.x = 5 * 32;
+                            this.player.y = 114 * 32;
+                            this.cameras.main.fadeIn(1000);
+                            this.spawnCars();
+                            this.showDialog([
+                                "Welcome to NYC!",
+                                "Cross the road to reach Isaac!",
+                                "Collect 3 streetlights on the way!"
+                            ]);
+                            this.updateQuestUI();
+                        });
+                    });
+                }, train);
+            }
+
+            createNYCStreets() {
+                // Crossy Road style - horizontal lanes
+                // Sidewalk at top
+                for (let x = 0; x < 60; x++) {
+                    for (let y = 112; y < 115; y++) {
+                        this.add.image(x * 32, y * 32, 'grass');
+                    }
+                }
+
+                // Road lanes (horizontal)
+                for (let x = 0; x < 60; x++) {
+                    for (let y = 115; y < 137; y++) {
+                        this.add.image(x * 32, y * 32, 'road');
+                    }
+                }
+
+                // Sidewalk at bottom
+                for (let x = 0; x < 60; x++) {
+                    for (let y = 137; y < 140; y++) {
+                        this.add.image(x * 32, y * 32, 'grass');
+                    }
+                }
+
+                // Buildings on top sidewalk
+                for (let i = 0; i < 8; i++) {
+                    const buildingHeight = Phaser.Math.Between(3, 6);
+                    const buildingX = 5 + i * 7;
+                    const building = this.add.rectangle(
+                        buildingX * 32, 
+                        (112 - buildingHeight) * 32, 
+                        5 * 32, 
+                        buildingHeight * 32, 
+                        [0x696969, 0x2F4F4F, 0x708090, 0x556B2F, 0x8B4513, 0xA0522D, 0x4A4A4A, 0x5C5C5C][i]
+                    );
+                    building.setOrigin(0.5, 0);
+
+                    // Windows
+                    for (let w = 0; w < buildingHeight - 1; w++) {
+                        for (let wx = 0; wx < 4; wx++) {
+                            const window = this.add.rectangle(
+                                (buildingX - 1.5 + wx * 1) * 32,
+                                (112 - buildingHeight + w + 0.5) * 32,
+                                10, 14,
+                                0xFFFF00, 0.7
+                            );
+                        }
+                    }
+                }
+
+                // Buildings on bottom sidewalk
+                for (let i = 0; i < 8; i++) {
+                    const buildingHeight = Phaser.Math.Between(3, 6);
+                    const buildingX = 5 + i * 7;
+                    const building = this.add.rectangle(
+                        buildingX * 32, 
+                        140 * 32, 
+                        5 * 32, 
+                        buildingHeight * 32, 
+                        [0x8B4513, 0x2F4F4F, 0x696969, 0x708090, 0xA0522D, 0x556B2F, 0x4A4A4A, 0x5C5C5C][i]
+                    );
+                    building.setOrigin(0.5, 0);
+
+                    // Windows
+                    for (let w = 0; w < buildingHeight - 1; w++) {
+                        for (let wx = 0; wx < 4; wx++) {
+                            const window = this.add.rectangle(
+                                (buildingX - 1.5 + wx * 1) * 32,
+                                (140 + w + 0.5) * 32,
+                                10, 14,
+                                0xFFFF00, 0.7
+                            );
+                        }
+                    }
+                }
+
+                // Streetlights on top sidewalk
+                const streetlightPositions = [
+                    {x: 10, y: 113}, {x: 25, y: 113}, {x: 40, y: 113}
+                ];
+
+                streetlightPositions.forEach((pos, i) => {
+                    const light = this.add.image(pos.x * 32, pos.y * 32, 'streetlight');
+                    this.createTask(pos.x * 32, pos.y * 32, `streetlight_${i}`, 'nyc_streets', () => {
+                        light.destroy();
+                        this.showDialog(["Collected a streetlight! ✨"]);
+                        this.gameState.nycTasks.streetlights++;
+                        this.updateQuestUI();
+                    }, light);
+                });
+
+                // Isaac at the far right on bottom sidewalk
+                this.isaac = this.add.sprite(55 * 32, 138 * 32, 'isaac');
+                this.isaac.setScale(1.0);
+                this.tweens.add({targets: this.isaac, y: this.isaac.y - 5, duration: 500, yoyo: true, repeat: -1});
+
+                this.createTask(this.isaac.x, this.isaac.y, 'meet_isaac', 'nyc_streets', () => {
+                    if (this.gameState.nycTasks.streetlights < 3) {
+                        this.showDialog(["Isaac: 'Find all 3 streetlights first, sweetheart!'"]);
+                    } else {
+                        
+
+this.showFinalDialog();
+
+// SAFE credits input handler
+this.input.keyboard.once('keydown', () => {
+    this.cameras.main.fade(1500, 255, 182, 203);
+    this.time.delayedCall(1500, () => {
+        
+this.textures.each(texture => {
+    texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+});
+
+this.scene.start('StartScene');
+    });
+});
+
+
+// Hold credits for 20 seconds, then fade to main menu
+this.time.delayedCall(20000, () => {
+    this.cameras.main.fade(1500, 255, 182, 203);
+    this.time.delayedCall(1500, () => {
+        
+this.textures.each(texture => {
+    texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+});
+
+this.scene.start('StartScene');
+    });
+});
+
+/* credits timing fix */
+this.time.delayedCall(15000, () => {});
+
+                    }
+                }, this.isaac);
+            }
+
+            createTask(x, y, taskId, phase, callback, sprite=null) {
+                const m = this.add.text(x, y - 20, '!', {
+                    fontSize: '24px', fill: '#FF0000', fontStyle: 'bold'
+                }).setOrigin(0.5);
+                
+                this.tweens.add({ targets: m, y: y - 25, duration: 500, yoyo: true, repeat: -1 });
+
+                this.markers.push({marker: m, taskId, phase, sprite});
+                this.interactables.push({x, y, id: taskId, phase, callback, range: 45});
+            }
+
+            createPlayer() {
+                this.player = this.physics.add.sprite(400, 400, 'player');
+                this.player.setCollideWorldBounds(false);
+                this.player.setDepth(10);
+            }
+
+            setupCamera() {
+                this.cameras.main.setBounds(0, 0, 2000, 5000);
+                this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+            }
+
+            setupControls() {
+                this.cursors = this.input.keyboard.createCursorKeys();
+                this.wasd = {
+                    up: this.input.keyboard.addKey('W'),
+                    left: this.input.keyboard.addKey('A'),
+                    down: this.input.keyboard.addKey('S'),
+                    right: this.input.keyboard.addKey('D')
+                };
+                this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            }
+
+            createUI() {
+                this.dialogBox = this.add.rectangle(400, 500, 700, 120, 0x000000, 0.85);
+                this.dialogBox.setScrollFactor(0).setDepth(100).setVisible(false);
+
+                this.dialogText = this.add.text(100, 450, '', {
+                    fontSize: '18px', fill: '#fff', wordWrap: { width: 600 }
+                });
+                this.dialogText.setScrollFactor(0).setDepth(101).setVisible(false);
+
+                this.questBox = this.add.rectangle(680, 100, 220, 180, 0x000000, 0.7);
+                this.questBox.setScrollFactor(0).setDepth(98);
+
+                this.questUI = this.add.text(590, 30, '', {
+                    fontSize: '13px', fill: '#FFB6C1', lineSpacing: 10
+                });
+                this.questUI.setScrollFactor(0).setDepth(99);
+
+                this.createTouchControls();
+                this.updateQuestUI();
+            }
+
+            createTouchControls() {
+                // Interaction button
+                const btn = this.add.circle(700, 500, 40, 0xFF69B4, 0.5).setScrollFactor(0).setInteractive().setDepth(99);
+                this.add.text(700, 500, 'A', {fontSize: '24px'}).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+                btn.on('pointerdown', () => this.handleInteraction());
+
+                // Virtual D-pad for iPad
+                const dpadSize = 50;
+                const dpadY = 520;
+                
+                // Up
+                const upBtn = this.add.circle(100, dpadY - 60, dpadSize, 0xFF69B4, 0.3).setScrollFactor(0).setInteractive().setDepth(99);
+                this.add.text(100, dpadY - 60, '↑', {fontSize: '32px'}).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+                upBtn.on('pointerdown', () => { this.touchControls.up = true; });
+                upBtn.on('pointerup', () => { this.touchControls.up = false; });
+                upBtn.on('pointerout', () => { this.touchControls.up = false; });
+
+                // Down
+                const downBtn = this.add.circle(100, dpadY, dpadSize, 0xFF69B4, 0.3).setScrollFactor(0).setInteractive().setDepth(99);
+                this.add.text(100, dpadY, '↓', {fontSize: '32px'}).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+                downBtn.on('pointerdown', () => { this.touchControls.down = true; });
+                downBtn.on('pointerup', () => { this.touchControls.down = false; });
+                downBtn.on('pointerout', () => { this.touchControls.down = false; });
+
+                // Left
+                const leftBtn = this.add.circle(40, dpadY - 30, dpadSize, 0xFF69B4, 0.3).setScrollFactor(0).setInteractive().setDepth(99);
+                this.add.text(40, dpadY - 30, '←', {fontSize: '32px'}).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+                leftBtn.on('pointerdown', () => { this.touchControls.left = true; });
+                leftBtn.on('pointerup', () => { this.touchControls.left = false; });
+                leftBtn.on('pointerout', () => { this.touchControls.left = false; });
+
+                // Right
+                const rightBtn = this.add.circle(160, dpadY - 30, dpadSize, 0xFF69B4, 0.3).setScrollFactor(0).setInteractive().setDepth(99);
+                this.add.text(160, dpadY - 30, '→', {fontSize: '32px'}).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+                rightBtn.on('pointerdown', () => { this.touchControls.right = true; });
+                rightBtn.on('pointerup', () => { this.touchControls.right = false; });
+                rightBtn.on('pointerout', () => { this.touchControls.right = false; });
+            }
+
+            updateQuestUI() {
+                let text = '';
+                if (this.gameState.phase === 'indoor') {
+                    const t = this.gameState.indoorTasks;
+                    text = `✿ Morning Routine ✿\n\n${t.findIPad ? '✓' : '○'} Find iPad\n${t.study ? '✓' : '○'} Study biology\n${t.changeOutfit ? '✓' : '○'} Change outfit\n${t.talkToMom ? '✓' : '○'} Mom & Dad\n${t.talkToBrother ? '✓' : '○'} Brother`;
+                } else if (this.gameState.phase === 'outdoor') {
+                    const t = this.gameState.outdoorTasks;
+                    text = `✿ Garden Adventures ✿\n\nFlowers: ${t.flowers}/4\nCats petted: ${t.cats}/3\nFood found: ${t.food}/3\n${t.cosmetic ? '✓' : '○'} Flower Knows`;
+                } else if (this.gameState.phase === 'milan') {
+                    const t = this.gameState.milanTasks;
+                    text = `✿ Milan Shopping ✿\n\n${t.shirt ? '✓' : '○'} Pink shirt\n${t.jeans ? '✓' : '○'} Jeans\n${t.bracelet ? '✓' : '○'} Alhambra\n${t.perfume ? '✓' : '○'} Yara\n${t.paidAtCashier ? '✓' : '○'} Pay at cashier`;
+                } else if (this.gameState.phase === 'airport') {
+                    const t = this.gameState.airportTasks;
+                    text = `✿ Airport Terminal ✿\n\n${t.chips ? '✓' : '○'} Chips\n${t.cola ? '✓' : '○'} Coca-Cola\n${t.candy ? '✓' : '○'} Candy\n${t.water ? '✓' : '○'} Water\n${t.complete ? '✓' : '○'} Board plane`;
+                } else if (this.gameState.phase === 'subway') {
+                    const t = this.gameState.subwayTasks;
+                    text = `✿ Subway Station ✿\n\n${t.luggage ? '✓' : '○'} Find luggage\n${t.luggage ? '○' : '○'} Board train`;
+                } else if (this.gameState.phase === 'nyc_streets') {
+                    text = `✿ NYC Streets ✿\n\nStreetlights: ${this.gameState.nycTasks.streetlights}/3\n\nCross the road!\nDodge the traffic!\nFind Isaac ♥`;
+                }
+                this.questUI.setText(text);
+            }
+
+            checkIndoorProgress() {
+                const t = this.gameState.indoorTasks;
+                if (t.findIPad && t.study && t.changeOutfit && t.talkToMom && t.talkToDad && t.talkToBrother) {
+                    t.complete = true;
+                    this.showDialog(["All set for the day!", "Said goodbye to everyone!", "Time to go outside (bottom door)."]);
+                }
+                this.updateQuestUI();
+            }
+
+            checkOutdoorProgress() {
+                const t = this.gameState.outdoorTasks;
+                if (t.flowers >= 4 && t.cats >= 3 && t.food >= 3 && t.cosmetic) {
+                    t.complete = true;
+                    this.showDialog(["You've gathered so much!", "Time to head to Milan (bottom path)!"]);
+                }
+                this.updateQuestUI();
+            }
+
+            checkBoundaries() {
+                const y = this.player.y;
+
+                if (this.gameState.phase === 'indoor') {
+                    if (y > this.coords.indoor.doorY) {
+                        if (!this.gameState.indoorTasks.complete) {
+                            this.player.y = this.coords.indoor.doorY - 10;
+                            this.showDialog(["Not ready yet!", "Finish your morning tasks first."]);
+                        } else {
+                            this.player.y = this.coords.outdoor.startY + 50;
+                            this.gameState.phase = 'outdoor';
+                            this.showDialog(["Welcome to the Garden!"]);
+                            this.updateQuestUI();
+                        }
+                    }
+                }
+                else if (this.gameState.phase === 'outdoor') {
+                    if (y > this.coords.outdoor.gateY) {
+                        if (!this.gameState.outdoorTasks.complete) {
+                            this.player.y = this.coords.outdoor.gateY - 10;
+                            this.showDialog(["Explore everything first!", "Find all flowers, cats, and food."]);
+                        } else {
+                            this.player.y = this.coords.milan.startY + 50;
+                            this.gameState.phase = 'milan';
+                            this.showDialog(["Welcome to Milan!", "Time to shop!"]);
+                            this.updateQuestUI();
+                        }
+                    }
+                }
+                else if (this.gameState.phase === 'milan') {
+                    if (y > this.coords.milan.exitY) {
+                        if (!this.gameState.milanTasks.complete) {
+                            this.player.y = this.coords.milan.exitY - 10;
+                            this.showDialog(["You must pay at the cashier first!"]);
+                        } else {
+                            this.player.y = this.coords.airport.startY + 50;
+                            this.player.x = 25 * 32;
+                            this.gameState.phase = 'airport';
+                            this.showDialog(["Arrived at the airport!"]);
+                            this.updateQuestUI();
+                        }
+                    }
+                }
+            }
+
+            spawnCars() {
+                const carTypes = ['car', 'blueCar', 'taxi', 'bus'];
+                
+                // Create cars in horizontal lanes (Crossy Road style) - REDUCED amount
+                for (let lane = 0; lane < 18; lane++) {
+                    const laneY = 116 + lane;
+                    
+                    // Skip some lanes to make it easier
+                    if (lane % 3 === 0) continue;
+                    
+                    const carType = carTypes[Phaser.Math.Between(0, 3)];
+                    
+                    // Only 1-2 cars per lane instead of 3
+                    const numCars = Phaser.Math.Between(1, 2);
+                    for (let c = 0; c < numCars; c++) {
+                        const car = this.physics.add.sprite(
+                            Phaser.Math.Between(c * 800, c * 800 + 400),
+                            laneY * 32,
+                            carType
+                        );
+                        
+                        // Alternate directions per lane
+                        const dir = lane % 2 === 0 ? 1 : -1;
+                        const speed = carType === 'bus' ? 120 : 180; // Slower speeds
+                        car.setVelocityX(dir * speed);
+                        car.flipX = dir < 0;
+                        
+                        this.cars.push(car);
+                        
+                        this.time.addEvent({
+                            delay: 100,
+                            callback: () => {
+                                // Wrap around
+                                if (dir > 0 && car.x > 1920) car.x = -50;
+                                else if (dir < 0 && car.x < -50) car.x = 1920;
+                                
+                                // Collision detection
+                                if (Phaser.Math.Distance.Between(this.player.x, this.player.y, car.x, car.y) < 35) {
+                                    // Reset to start position
+                                    this.player.x = 5 * 32;
+                                    this.player.y = 114 * 32;
+                                    this.cameras.main.shake(200, 0.01);
+                                    this.showDialog(["Oops! Watch out for the traffic!"]);
+                                }
+                            },
+                            loop: true
+                        });
+                    }
+                }
+            }
+
+            handleInteraction() {
+                if (this.isDialogActive) {
+                    this.dialogIndex++;
+                    this.displayCurrentDialog();
+                    return;
+                }
+
+                this.interactables.forEach((item, index) => {
+                    if (item.phase !== this.gameState.phase) return;
+                    
+                    const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, item.x, item.y);
+                    if (d < item.range) {
+                        item.callback();
+                        if (item.id !== 'meet_isaac') {
+                            const mObj = this.markers.find(m => m.taskId === item.id);
+                            if (mObj) mObj.marker.destroy();
+                            this.interactables.splice(index, 1);
+                        }
+                    }
+                });
+            }
+
+            showDialog(msgs) {
+                this.currentDialog = msgs;
+                this.dialogIndex = 0;
+                this.isDialogActive = true;
+                this.displayCurrentDialog();
+            }
+
+            displayCurrentDialog() {
+                if (this.dialogIndex < this.currentDialog.length) {
+                    this.dialogBox.setAlpha(0);
+this.dialogBox.setVisible(true);
+this.tweens.add({
+    targets: this.dialogBox,
+    alpha: 1,
+    duration: 200
+});
+                    this.dialogText.setVisible(true);
+                    this.dialogText.setText(this.currentDialog[this.dialogIndex] + "\n\n(Press SPACE to continue)");
+                } else {
+                    this.isDialogActive = false;
+                    this.dialogBox.setVisible(false);
+                    this.dialogText.setVisible(false);
+                }
+            }
+
+            showFinalDialog() {
+                this.dialogBox.setVisible(false);
+                this.dialogText.setVisible(false);
+                this.questBox.setVisible(false);
+                this.questUI.setVisible(false);
+                
+                const ft = this.add.text(400, 300, 'I love you my sweetheart\nhappy new years ♥', {
+                    fontSize: '42px',
+                    fill: '#FF69B4',
+                    fontStyle: 'bold',
+                    stroke: '#FFFFFF',
+                    strokeThickness: 6,
+                    align: 'center',
+                    lineSpacing: 10
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+                this.tweens.add({
+                    targets: ft,
+                    alpha: { from: 0, to: 1 },
+                    duration: 1000,
+                    hold: 3000,
+                    yoyo: true,
+                    onComplete: () => {
+                        ft.destroy();
+                        this.rollCredits();
+                    }
+                });
+            }
+
+            rollCredits() {
+                // removed fade-to-black for credits
+                this.time.delayedCall(1000, () => {
+                    const bg = this.add.rectangle(400, 300, 800, 600, 0x000000).setScrollFactor(0).setDepth(299);
+                    
+                    const credits = [
+                        "Made with love by Isaac ♥", "",
+                        "Thank you for being in my life", "Every moment with you is a treasure",
+                        "You bring joy to my days", "And warmth to my heart", "",
+                        "Your smile lights up my world", "Your laughter is my favorite song", "",
+                        "I'm so grateful for you", "For your kindness, your patience",
+                        "For the way you make me feel", "",
+                        "This journey we're on together", "Is the greatest adventure", "",
+                        "With all my love,", "Forever and always ♥"
+                    ];
+
+                    credits.forEach((line, i) => {
+                        const t = this.add.text(400, 600 + (i * 40), line, {
+                            fontSize: '24px', fill: '#FFB6C1', align: 'center'
+                        }).setOrigin(0.5).setScrollFactor(0).setDepth(300);
+                        this.tweens.add({ targets: t, y: t.y - 800, duration: 6000 });
+                    });
+
+                    this.time.delayedCall(22000, () => {
+                        // removed fade-to-black for credits
+                        this.time.delayedCall(1000, () => {
+                            
+this.textures.each(texture => {
+    texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+});
+
+this.scene.start('StartScene');
+                        });
+                    });
+                });
+            }
+
+            update() {
+                this.markers.forEach(m => {
+                    const visible = (m.phase === this.gameState.phase);
+                    m.marker.setVisible(visible);
+                    if(m.sprite) m.sprite.setVisible(visible);
+                });
+
+                if (this.isDialogActive) {
+                    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                        this.dialogIndex++;
+                        this.displayCurrentDialog();
+                    }
+                    return;
+                }
+
+                this.player.setVelocity(0);
+                const spd = 160;
+
+                if (this.cursors.left.isDown || this.wasd.left.isDown) this.player.setVelocityX(-spd);
+                else if (this.cursors.right.isDown || this.wasd.right.isDown) this.player.setVelocityX(spd);
+
+                if (this.cursors.up.isDown || this.wasd.up.isDown) this.player.setVelocityY(-spd);
+                else if (this.cursors.down.isDown || this.wasd.down.isDown) this.player.setVelocityY(spd);
+
+                if (this.touchControls.left) this.player.setVelocityX(-spd);
+                else if (this.touchControls.right) this.player.setVelocityX(spd);
+
+                if (this.touchControls.up) this.player.setVelocityY(-spd);
+                else if (this.touchControls.down) this.player.setVelocityY(spd);
+
+                if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                    this.handleInteraction();
+                }
+
+                this.checkBoundaries();
+            }
+        }
+
+        const config = {
+    render: {
+        pixelArt: true,
+        antialias: false
+    },
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            physics: {
+                default: 'arcade',
+                arcade: { gravity: { y: 0 }, debug: false }
+            },
+            scene: [StartScene, GameScene]
+        };
+
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+</html>
+                
